@@ -1,0 +1,112 @@
+---
+title: "Boarding Problem"
+output: html_document
+---
+
+This is document that solves the Riddler for the week of Feb 19, 2016 located here: http://fivethirtyeight.com/features/will-someone-be-sitting-in-your-seat-on-the-plane/
+
+There’s an airplane with 100 seats, and there are 100 ticketed passengers each with an assigned 
+seat. They line up to board in some random order. However, the first person to board is the 
+worst person alive, and just sits in a random seat, without even looking at his boarding pass. 
+Each subsequent passenger sits in his or her own assigned seat if it’s empty, but sits in a 
+random open seat if the assigned seat is occupied. What is the probability that you, the hundredth passenger to board, finds your seat unoccupied?
+
+For my solution, I'm assuming that the passengers are assigned seats 1 through the
+100. This allows me to leverage sequential number functions. This assumption
+should not impact the probability.
+
+First, I created a function called seatProb that does all for the work to determine which seats are available, which seats are taken, and where everyone sits.
+```{r}
+# nthSeat is a vector of passengers that will sit in a random seat
+seatProb <- function(numSeats, passengerPosition, nthSeat, numSims) {
+  answer <- NULL
+
+  # repeat the simulation n times
+  for (i in 1:numSims) {
+    set.seed(i)
+    
+    seats.taken = NULL
+    seats.avail <- c(1:numSeats)
+  
+    for (j in 1:numSeats) {
+      #    Attempt to seat the second person through the last person in their assigned seat
+      #    Each passenger will look for the seat that matches their passenger number
+      if (j %in% nthSeat) seat <- sample(seats.avail, 1)           # the nth passenger will sit in random seat
+      else if (j %in% seats.taken) seat <- sample(seats.avail, 1)  # seat taken
+      else seat <- j                                               # seat not taken
+    
+      seats.taken[j] <- seat
+      seats.avail <- seats.avail[!seats.avail == seat]
+    } 
+    # Is the passenger in passengerPosition in their assigned seat
+    # Populate the answer in answer[n]
+    answer[i] <- seats.taken[passengerPosition] == passengerPosition
+  }
+  probability <- sum(answer + 0) / numSims
+}
+```
+
+The main problem asks what is the probability of the 100th passenger sitting in their seat given that the first passenger sits in a random seat. In short, the answer is 50%. 
+
+As can be seen by the graph below, the probability of the first 90 or so passengers getting to 
+their assigned seats is no less than 90%. As you would expect, the second passenger is almost 
+guaranteed to reach his assigned seat. However, for those last ten folks boarding the plan, the 
+probabilities drop quickly, with the last passenger realizing a 50% probability. 
+See the graph below.
+
+```{r,warning=FALSE}
+position <- c(20, 40, 60, 80, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100)
+N <- 1  # Number of different passenger configs
+nSims <- 250
+nSeats <- 100
+
+seatStats <- list()
+for (i in 1:N) {
+  seatStats[[i]] <- sapply(position, seatProb, numSeats=nSeats, nthSeat=c(1:i), numSims=nSims)
+}
+firstNRandom = do.call(cbind, seatStats)
+
+plot(position, firstNRandom[,1], type="n", xlab="Passenger Number", ylab="Probability", ylim=0:1 ) 
+colors <- rainbow(10) 
+linetype <- c(1:10) 
+plotchar <- seq(18,28,1)
+
+for (i in 1:N) { 
+  lines(position, firstNRandom[,i], type="b", lwd=1.5, lty=linetype[i], col=colors[i], pch=plotchar[i]) 
+} 
+title("Probability of reaching your assigned seat")
+```
+
+During my evaluation, I also noted that if more than one passenger decided to select a random
+seat instead of their assigned seat, then the probabilities started to drop quickly. For example,
+I ran a simulation of the first two passengers selecting random seats, the first three 
+passengers, and so on, all the way to the first ten passengers selecting random seats. In the
+scenario where the first ten passengers selecting random seats, the 100th passenger then only 
+has an 11% change of getting to their assigned seat. See the graph below. for all ten 
+simulations.
+
+```{r,warning=FALSE}
+position <- c(20, 40, 60, 80, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100)
+N <- 10  # Number of different passenger configs
+nSims <- 250
+nSeats <- 100
+
+seatStats <- list()
+for (i in 1:N) {
+  seatStats[[i]] <- sapply(position, seatProb, numSeats=nSeats, nthSeat=c(1:i), numSims=nSims)
+}
+firstNRandom = do.call(cbind, seatStats)
+
+plot(position, firstNRandom[,1], type="n", xlab="Passenger Number", ylab="Probability", ylim=0:1 ) 
+colors <- rainbow(10) 
+linetype <- c(1:10) 
+plotchar <- seq(18,28,1)
+
+for (i in 1:N) { 
+  lines(position, firstNRandom[,i], type="b", lwd=1.5, lty=linetype[i], col=colors[i], pch=plotchar[i]) 
+} 
+title("Probabilities as number of random passengers increases")
+
+legend(x=20, y=0.6, 1:N, cex=0.8, col=colors, pch=plotchar,
+       lty=linetype, title="# of random passengers that first enter plane")
+```
